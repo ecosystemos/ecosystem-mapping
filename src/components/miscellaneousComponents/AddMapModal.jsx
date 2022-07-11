@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 
 import {
   Button,
@@ -8,7 +8,6 @@ import {
   FormLabel,
   IconButton,
   Input,
-  Link,
   MenuItem,
   Modal,
   ModalBody,
@@ -17,19 +16,21 @@ import {
   ModalFooter,
   ModalHeader,
   ModalOverlay,
-  Text,
   useDisclosure,
-  useToast
+  useToast,
 } from "@chakra-ui/react";
-import { useHistory, withRouter } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
+import PropTypes from "prop-types";
 
 import SelectLocationComponent from "../regionComponents/SelectLocationComponent";
 import "../../assets/fonts/fonts.css";
 import SelectIndustry from "../industryComponant/SelectIndustry";
 import { Authentication } from "../../service/authentication";
-import { Region } from "../../service/region";
+import { Location } from "../../service/location";
 import { Map } from "../../service/map";
+import { AppProvider } from "../../App";
+import { Industry } from "../../service/industry";
 
 const headerStyle = {
   fontFamily: "Ubuntu",
@@ -38,7 +39,7 @@ const headerStyle = {
   fontWeight: "500",
   lineHeight: "90px",
   letterSpacing: "0em",
-  textAlign: "left"
+  textAlign: "left",
 };
 
 const htagStyle = {
@@ -49,10 +50,10 @@ const htagStyle = {
   lineHeight: "28px",
   letterSpacing: "0em",
   textAlign: "left",
-  mt: "24px"
+  mt: "24px",
 };
 const modalWidth = {
-  maxWidth: "704px"
+  maxWidth: "704px",
 };
 
 const CreateButton = chakra(IconButton, {
@@ -65,13 +66,15 @@ const CreateButton = chakra(IconButton, {
     display: "block",
     cursor: "pointer",
     marginTop: "15px",
-    size: "lg"
-  }
+    size: "lg",
+  },
 });
 
-const AddMapModal = ({ isEdit, data, isAdd, notifyParent, isHome }) => {
+const AddMapModal = (props) => {
+  const { isEdit, isAdd } = props;
+  const appProvider = useContext(AppProvider);
   const { t } = useTranslation();
-  const history = useHistory();
+  const navigate = useNavigate();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const initialRef = React.useRef();
   const finalRef = React.useRef();
@@ -86,21 +89,21 @@ const AddMapModal = ({ isEdit, data, isAdd, notifyParent, isHome }) => {
   const [subIndustries, setSubIndustries] = useState([]);
 
   const setInitialLocation = (locData) => {
-    const allRegions = Region.getregions();
-    const allCountries = Region.getCountriesByRegion(locData.region);
-    const getStatesByCountry = Region.getStatesByCountry(
+    const allRegions = Location.getregions();
+    const allCountries = Location.getCountriesByRegion(locData.region);
+    const getStatesByCountry = Location.getStatesByCountry(
       locData.region,
       locData.country
     );
 
-    const getCities = Region.getCitiesByState(
+    const getCities = Location.getCitiesByState(
       locData.region,
       locData.country,
       locData.state
     );
 
-    const allIndustries = Region.getIndustries();
-    const getSubIndustriesByIndustry = Region.getSubIndustriesByIndustry(
+    const allIndustries = appProvider.industries;
+    const getSubIndustriesByIndustry = Industry.getSubIndustriesByIndustry(
       locData.industry
     );
 
@@ -167,13 +170,10 @@ const AddMapModal = ({ isEdit, data, isAdd, notifyParent, isHome }) => {
             status: "success",
             duration: 5000,
             position: "top-right",
-            isClosable: true
+            isClosable: true,
           });
           onClose();
-          history.push({
-            pathname: "/services/" + res.id,
-            state: { mapName: mapName }
-          });
+          navigate("/dashboard/" + res.id);
         }
       });
     } else {
@@ -182,16 +182,9 @@ const AddMapModal = ({ isEdit, data, isAdd, notifyParent, isHome }) => {
         status: "warning",
         duration: 3000,
         position: "top-right",
-        isClosable: true
+        isClosable: true,
       });
     }
-  };
-
-  const handleEdit = () => {
-    onOpen();
-    handleLocationDataChange(data);
-    setMapName(data.name);
-    setLocationData(data);
   };
 
   const EditMap = () => {
@@ -208,10 +201,9 @@ const AddMapModal = ({ isEdit, data, isAdd, notifyParent, isHome }) => {
             status: "success",
             duration: 5000,
             position: "top-right",
-            isClosable: true
+            isClosable: true,
           });
         }
-        notifyParent();
         onClose();
       });
     } else {
@@ -220,14 +212,14 @@ const AddMapModal = ({ isEdit, data, isAdd, notifyParent, isHome }) => {
         status: "warning",
         duration: 3000,
         position: "top-right",
-        isClosable: true
+        isClosable: true,
       });
     }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    setMapName({ mapName: mapName });
+    setMapName(mapName);
   };
 
   const handleOpenModal = () => {
@@ -240,31 +232,19 @@ const AddMapModal = ({ isEdit, data, isAdd, notifyParent, isHome }) => {
         status: "warning",
         duration: 3000,
         position: "top-right",
-        isClosable: true
+        isClosable: true,
       });
     }
   };
 
   useEffect(() => {
-    const fetchData = async () => {
-      await Region.listAllRegions();
-      await Region.listAllIndustries();
-      setInitialLocation(locationData);
-    };
-
-    fetchData().catch(console.error);
-  }, [locationData, isEdit, isAdd, data, isHome]);
+    setInitialLocation(appProvider.locations);
+  }, []);
 
   return (
     <React.Fragment>
-      {isHome ? (
-        <Link onClick={handleOpenModal}>
-          <Text color="blue" m="7px" fontSize="17px">
-            {t("startup.home.page.header.add.map.link")}
-          </Text>
-        </Link>
-      ) : isEdit ? (
-        <MenuItem onClick={handleEdit}>
+      {isEdit ? (
+        <MenuItem onClick={onOpen}>
           {t("startup.list.map.page.map.card.edit")}
         </MenuItem>
       ) : isAdd ? (
@@ -315,7 +295,7 @@ const AddMapModal = ({ isEdit, data, isAdd, notifyParent, isHome }) => {
                   onChange={(e) => {
                     setLocationData({
                       ...locationData,
-                      name: e.target.value
+                      name: e.target.value,
                     });
                   }}
                 />
@@ -383,4 +363,13 @@ const AddMapModal = ({ isEdit, data, isAdd, notifyParent, isHome }) => {
   );
 };
 
-export default withRouter(AddMapModal);
+AddMapModal.defaultProps = {
+  isEdit: false,
+};
+
+AddMapModal.propTypes = {
+  isEdit: PropTypes.bool,
+  isAdd: PropTypes.bool.isRequired,
+};
+
+export default AddMapModal;
